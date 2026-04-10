@@ -194,29 +194,47 @@
       background: linear-gradient(145deg, #9b6ed8, #b477d9);
     }
 
-    /* No button - absolute positioned, will never overlap Yes button */
+    /* No button - fixed positioned so it can escape outside the card */
     .btn-no {
       font-family: inherit;
       font-size: 1.3rem;
       font-weight: 500;
       padding: 0.8rem 2rem;
       border-radius: 3rem;
-      border: none;
+      border: 1px solid #ffb7cf;
       cursor: pointer;
       background: #fff0f3;
       color: #d65db1;
-      border: 1px solid #ffb7cf;
       min-width: 130px;
       letter-spacing: 0.5px;
-      position: absolute;
-      transition: left 0.15s cubic-bezier(0.2, 0.9, 0.4, 1.1), top 0.15s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+      position: fixed;
+      transition: left 0.22s cubic-bezier(0.2, 0.9, 0.4, 1.2), top 0.22s cubic-bezier(0.2, 0.9, 0.4, 1.2);
       will-change: left, top;
-      z-index: 10;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      z-index: 500;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     }
 
     .btn-no:active {
-      transform: scale(0.98);
+      transform: scale(0.96);
+    }
+
+    /* Yes button shake animation */
+    @keyframes yesShake {
+      0%   { transform: rotate(0deg) scale(1); }
+      10%  { transform: rotate(-4deg) scale(1.04); }
+      20%  { transform: rotate(4deg) scale(1.06); }
+      30%  { transform: rotate(-3deg) scale(1.05); }
+      40%  { transform: rotate(3deg) scale(1.04); }
+      50%  { transform: rotate(-2deg) scale(1.03); }
+      60%  { transform: rotate(2deg) scale(1.02); }
+      70%  { transform: rotate(-1deg) scale(1.01); }
+      80%  { transform: rotate(1deg) scale(1.01); }
+      90%  { transform: rotate(0deg) scale(1.0); }
+      100% { transform: rotate(0deg) scale(1); }
+    }
+
+    .btn-yes.shaking {
+      animation: yesShake 0.55s ease forwards;
     }
 
     .hidden-content {
@@ -442,155 +460,86 @@
 <script>
   (function() {
     let dodgeCount = 0;
-    
+    let messageTimeout = null;
+
     function showFloatingMessage(text) {
-      const existingTip = document.querySelector('.dodge-tip');
-      if (existingTip) existingTip.remove();
-      const tip = document.createElement('div');
-      tip.className = 'dodge-tip';
-      tip.innerText = text;
-      document.body.appendChild(tip);
-      setTimeout(() => {
-        if (tip && tip.parentNode) tip.remove();
-      }, 1800);
+      if (messageTimeout) { clearTimeout(messageTimeout); messageTimeout = null; }
+      messageTimeout = setTimeout(() => {
+        const existingTip = document.querySelector('.dodge-tip');
+        if (existingTip) existingTip.remove();
+        const tip = document.createElement('div');
+        tip.className = 'dodge-tip';
+        tip.innerText = text;
+        document.body.appendChild(tip);
+        setTimeout(() => { if (tip && tip.parentNode) tip.remove(); }, 2400);
+        messageTimeout = null;
+      }, 700);
     }
-    
-    // Check if two rectangles overlap
-    function rectsOverlap(rect1, rect2) {
-      return !(rect1.right < rect2.left || 
-               rect1.left > rect2.right || 
-               rect1.bottom < rect2.top || 
-               rect1.top > rect2.bottom);
+
+    const SHADOW_COLORS = [
+      '0 0 0 3px #845ec2, 0 0 22px 8px #845ec280, 0 0 40px 14px #d65db140',
+      '0 0 0 3px #d65db1, 0 0 22px 8px #d65db180, 0 0 40px 14px #ff6f9140',
+      '0 0 0 3px #ff6f91, 0 0 22px 8px #ff6f9180, 0 0 40px 14px #ffc75f40',
+      '0 0 0 3px #ffc75f, 0 0 22px 8px #ffc75f80, 0 0 40px 14px #845ec240',
+      '0 0 0 3px #ff9671, 0 0 22px 8px #ff967180, 0 0 40px 14px #d65db140',
+    ];
+    let shadowIdx = 0;
+    let shakeTimeout = null;
+
+    function shakeYesButton(yesBtn) {
+      if (!yesBtn) return;
+      yesBtn.classList.remove('shaking');
+      void yesBtn.offsetWidth;
+      yesBtn.classList.add('shaking');
+      yesBtn.style.boxShadow = SHADOW_COLORS[shadowIdx % SHADOW_COLORS.length];
+      shadowIdx++;
+      if (shakeTimeout) clearTimeout(shakeTimeout);
+      shakeTimeout = setTimeout(() => {
+        if (yesBtn) { yesBtn.classList.remove('shaking'); yesBtn.style.boxShadow = ''; }
+      }, 650);
     }
-    
-    // Get random position that does NOT overlap with Yes button
-    function getRandomNonOverlapPosition(noBtn, container, yesBtn) {
-      if (!noBtn || !container || !yesBtn) return { left: 0, top: 0 };
-      
-      const btnWidth = noBtn.offsetWidth;
-      const btnHeight = noBtn.offsetHeight;
-      
-      if (btnWidth === 0 || btnHeight === 0) return { left: 0, top: 0 };
-      
-      const maxLeft = Math.max(0, container.clientWidth - btnWidth);
-      const maxTop = Math.max(0, container.clientHeight - btnHeight);
-      
-      if (maxLeft <= 0 || maxTop <= 0) return { left: 5, top: 5 };
-      
-      // Get Yes button's bounding rectangle relative to container
-      const yesRect = yesBtn.getBoundingClientRect();
-      const containerRect = container.getBoundingClientRect();
-      
-      // Convert Yes button position to container-relative coordinates
-      const yesRelativeRect = {
-        left: yesRect.left - containerRect.left,
-        right: yesRect.right - containerRect.left,
-        top: yesRect.top - containerRect.top,
-        bottom: yesRect.bottom - containerRect.top,
-        width: yesBtn.offsetWidth,
-        height: yesBtn.offsetHeight
-      };
-      
-      // Try up to 50 times to find a non-overlapping position
-      for (let attempt = 0; attempt < 60; attempt++) {
-        let randomLeft = Math.random() * maxLeft;
-        let randomTop = Math.random() * maxTop;
-        
-        // Add small margin to avoid edges
-        randomLeft = Math.min(Math.max(randomLeft, 8), maxLeft - 8);
-        randomTop = Math.min(Math.max(randomTop, 8), maxTop - 8);
-        
-        const noCandidateRect = {
-          left: randomLeft,
-          right: randomLeft + btnWidth,
-          top: randomTop,
-          bottom: randomTop + btnHeight
-        };
-        
-        // Check overlap with Yes button
-        const overlaps = !(noCandidateRect.right < yesRelativeRect.left || 
-                          noCandidateRect.left > yesRelativeRect.right || 
-                          noCandidateRect.bottom < yesRelativeRect.top || 
-                          noCandidateRect.top > yesRelativeRect.bottom);
-        
-        if (!overlaps) {
-          return { left: randomLeft, top: randomTop };
-        }
+
+    function moveNoButtonNearby(noBtn, yesBtn) {
+      if (!noBtn) return;
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+      const bw = noBtn.offsetWidth || 130;
+      const bh = noBtn.offsetHeight || 48;
+      let curLeft = parseFloat(noBtn.style.left);
+      let curTop  = parseFloat(noBtn.style.top);
+      const isFirst = isNaN(curLeft) || isNaN(curTop);
+      if (isFirst && yesBtn) {
+        const yr = yesBtn.getBoundingClientRect();
+        curLeft = yr.right + 20;
+        curTop  = yr.top;
       }
-      
-      // If all attempts fail, try positions at corners (far from Yes)
-      const corners = [
-        { left: 8, top: 8 },
-        { left: maxLeft - 8, top: 8 },
-        { left: 8, top: maxTop - 8 },
-        { left: maxLeft - 8, top: maxTop - 8 },
-        { left: maxLeft / 2, top: 8 },
-        { left: 8, top: maxTop / 2 }
-      ];
-      
-      for (const corner of corners) {
-        const noCornerRect = {
-          left: corner.left,
-          right: corner.left + btnWidth,
-          top: corner.top,
-          bottom: corner.top + btnHeight
-        };
-        const overlaps = !(noCornerRect.right < yesRelativeRect.left || 
-                          noCornerRect.left > yesRelativeRect.right || 
-                          noCornerRect.bottom < yesRelativeRect.top || 
-                          noCornerRect.top > yesRelativeRect.bottom);
-        if (!overlaps && corner.left >= 0 && corner.left <= maxLeft && corner.top >= 0 && corner.top <= maxTop) {
-          return { left: corner.left, top: corner.top };
+      const STEP = 120 + Math.random() * 100;
+      const minLeft = 8, maxLeft = W - bw - 8;
+      const minTop  = 8, maxTop  = H - bh - 8;
+      let newLeft, newTop, found = false;
+      for (let i = 0; i < 40; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist  = STEP * (0.7 + Math.random() * 0.6);
+        let cL = Math.min(Math.max(curLeft + Math.cos(angle) * dist, minLeft), maxLeft);
+        let cT = Math.min(Math.max(curTop  + Math.sin(angle) * dist, minTop),  maxTop);
+        if (yesBtn) {
+          const yr = yesBtn.getBoundingClientRect();
+          if (!(cL + bw < yr.left || cL > yr.right || cT + bh < yr.top || cT > yr.bottom)) continue;
         }
+        newLeft = cL; newTop = cT; found = true; break;
       }
-      
-      // Last resort: position to the right or left of Yes button
-      const yesCenterX = yesRelativeRect.left + yesRelativeRect.width / 2;
-      const placeRight = yesCenterX < container.clientWidth / 2;
-      let fallbackLeft = placeRight ? yesRelativeRect.right + 15 : yesRelativeRect.left - btnWidth - 15;
-      fallbackLeft = Math.min(Math.max(fallbackLeft, 5), maxLeft - 5);
-      return { left: fallbackLeft, top: Math.min(Math.max(20, maxTop / 2), maxTop - 20) };
-    }
-    
-    // Teleport No button to random location without overlapping Yes
-    function teleportNoButton(noBtn, groupContainer, yesBtn, showHint = true) {
-      if (!noBtn || !groupContainer || !yesBtn) return false;
-      
-      const newPos = getRandomNonOverlapPosition(noBtn, groupContainer, yesBtn);
-      
-      noBtn.style.position = 'absolute';
-      noBtn.style.left = newPos.left + 'px';
-      noBtn.style.top = newPos.top + 'px';
-      
-      // Playful bounce effect
-      noBtn.style.transform = 'scale(0.94) rotate(1deg)';
-      setTimeout(() => {
-        if (noBtn) noBtn.style.transform = '';
-      }, 150);
-      
-      dodgeCount++;
-      
-      if (showHint) {
-        if (dodgeCount === 2) {
-          showFloatingMessage('✨ trying to catch me? i move randomly ✨');
-        } else if (dodgeCount === 5) {
-          showFloatingMessage('💫 just click Yes, it’s your birthday! 💫');
-        } else if (dodgeCount === 8) {
-          showFloatingMessage('🌸 say Yes and celebrate 🌸');
-        } else if (dodgeCount === 12) {
-          showFloatingMessage('💖 you know you want to click Yes 💖');
-        } else if (dodgeCount % 7 === 0 && dodgeCount > 10) {
-          showFloatingMessage('🎈 give up? click Yes! 🎈');
-        }
+      if (!found) {
+        newLeft = minLeft + Math.random() * (maxLeft - minLeft);
+        newTop  = minTop  + Math.random() * (maxTop  - minTop);
       }
-      
-      return true;
+      noBtn.style.left = newLeft + 'px';
+      noBtn.style.top  = newTop  + 'px';
     }
-    
+
     function createQuestionUI() {
       const container = document.getElementById('dynamicContent');
       if (!container) return;
-      
+
       const questionDiv = document.createElement('div');
       questionDiv.className = 'question-card';
       questionDiv.style.animation = 'fadeInUp 0.6s ease forwards';
@@ -598,76 +547,74 @@
         <h2>🌸 are you happy right now? 🌸</h2>
         <div class="button-group" id="yesNoGroup">
           <button class="btn-yes" id="yesBtn">Yes 🎈</button>
-          <button class="btn-no" id="noBtn">No 💔</button>
         </div>
         <div style="margin-top: 1.5rem; font-size: 0.75rem; opacity: 0.6;">✨ just a gentle check ✨</div>
       `;
       container.appendChild(questionDiv);
-      
+
+      const noBtn = document.createElement('button');
+      noBtn.className = 'btn-no';
+      noBtn.id = 'noBtn';
+      noBtn.textContent = 'No 💔';
+      document.body.appendChild(noBtn);
+
       const yesBtn = document.getElementById('yesBtn');
-      const noBtn = document.getElementById('noBtn');
-      const groupContainer = document.getElementById('yesNoGroup');
-      
-      if (!yesBtn || !noBtn || !groupContainer) return;
-      
-      // Initial random position (non-overlapping)
+
       const initPosition = () => {
-        if (groupContainer && noBtn && yesBtn) {
-          const initPos = getRandomNonOverlapPosition(noBtn, groupContainer, yesBtn);
-          noBtn.style.position = 'absolute';
-          noBtn.style.left = initPos.left + 'px';
-          noBtn.style.top = initPos.top + 'px';
+        if (!yesBtn || !noBtn) return;
+        const yr = yesBtn.getBoundingClientRect();
+        const nr = noBtn.getBoundingClientRect();
+        const nbh = nr.height || yr.height;
+        const nbw = nr.width || 130;
+        let initLeft = yr.right + 16;
+        if (initLeft + nbw > window.innerWidth - 8) {
+          initLeft = Math.max(8, yr.left - nbw - 16);
         }
+        noBtn.style.left = initLeft + 'px';
+        noBtn.style.top  = Math.round(yr.top + yr.height / 2 - nbh / 2) + 'px';
       };
-      
-      // Wait for layout to be ready
-      setTimeout(initPosition, 30);
-      
-      // Function to handle teleport on any interaction
+      // Retry via rAF until both buttons are fully laid out
+      const tryInit = () => {
+        const yr = yesBtn.getBoundingClientRect();
+        const nr = noBtn.getBoundingClientRect();
+        if (yr.height > 0 && nr.height > 0) { initPosition(); }
+        else { requestAnimationFrame(tryInit); }
+      };
+      requestAnimationFrame(tryInit);
+
+      let lastAvoid = 0;
+      const THROTTLE = 260;
+
       const handleAvoid = (e) => {
-        if (e) {
-          e.preventDefault();
-          e.stopPropagation();
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        const now = Date.now();
+        if (now - lastAvoid < THROTTLE) return;
+        lastAvoid = now;
+        moveNoButtonNearby(noBtn, yesBtn);
+        shakeYesButton(yesBtn);
+        dodgeCount++;
+        if (dodgeCount === 2) {
+          showFloatingMessage('✨ trying to catch me? ✨');
+        } else if (dodgeCount === 5) {
+          showFloatingMessage("💫 just click Yes, it's your birthday! 💫");
+        } else if (dodgeCount === 8) {
+          showFloatingMessage('🌸 say Yes and celebrate 🌸');
+        } else if (dodgeCount === 12) {
+          showFloatingMessage('💖 you know you want to click Yes 💖');
+        } else if (dodgeCount % 7 === 0 && dodgeCount > 10) {
+          showFloatingMessage('🎈 give up? click Yes! 🎈');
         }
-        teleportNoButton(noBtn, groupContainer, yesBtn, true);
       };
-      
-      // Mouse events
+
       noBtn.addEventListener('mouseenter', handleAvoid);
-      noBtn.addEventListener('mousemove', handleAvoid);
-      noBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        teleportNoButton(noBtn, groupContainer, yesBtn, true);
-        return false;
-      });
-      
-      // Touch events for mobile
-      noBtn.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        teleportNoButton(noBtn, groupContainer, yesBtn, true);
-      });
-      noBtn.addEventListener('touchmove', (e) => {
-        e.preventDefault();
-        teleportNoButton(noBtn, groupContainer, yesBtn, true);
-      });
-      
-      // Reposition on window resize
-      window.addEventListener('resize', () => {
-        if (noBtn && groupContainer && yesBtn) {
-          const newPos = getRandomNonOverlapPosition(noBtn, groupContainer, yesBtn);
-          noBtn.style.left = newPos.left + 'px';
-          noBtn.style.top = newPos.top + 'px';
-        }
-      });
-      
-      // Yes button reveals birthday page
+      noBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); handleAvoid(e); return false; });
+      noBtn.addEventListener('touchstart', (e) => { handleAvoid(e); }, { passive: false });
+      window.addEventListener('resize', () => { if (noBtn && yesBtn) initPosition(); });
+
       yesBtn.addEventListener('click', (e) => {
         e.preventDefault();
+        noBtn.remove();
         showBirthdayPage();
-      });
-      yesBtn.addEventListener('touchstart', (e) => {
-        // allow normal click
       });
     }
     
