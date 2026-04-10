@@ -587,29 +587,77 @@
     // Show "joke then surprise in 5s" card
     function showJokeThenSurprise() {
       removeOverlay();
+
       const backdrop = document.createElement('div');
       backdrop.className = 'backdrop-blur';
+
       const cardDiv = document.createElement('div');
       cardDiv.className = 'overlay-card';
+
       cardDiv.innerHTML = `
         <h3>🤡 Just Kidding! 🤡</h3>
-        <p>It's a joke, the surprise will open in 5 seconds...</p>
-        <button id="jokeOkBtn">OK, I'll wait ✨</button>
+        <p>It's a joke, the surprise will open in 5s after you click OK...</p>
+        <button id="jokeOkBtn">OK ✨</button>
       `;
+
       document.body.appendChild(backdrop);
       document.body.appendChild(cardDiv);
+
       const okBtn = cardDiv.querySelector('#jokeOkBtn');
-      const cleanupAndProceed = () => {
-        if(backdrop && backdrop.parentNode) backdrop.remove();
-        if(cardDiv && cardDiv.parentNode) cardDiv.remove();
-        // show a floating message and then reveal birthday page after 5s
-        showFloatingMessage("🎉 Preparing your birthday surprise... 🎉");
-        setTimeout(() => {
-          showBirthdayPage();
-        }, 5000);
+
+      const openSurprise = () => {
+        // cleanup overlay
+        backdrop?.remove();
+        cardDiv?.remove();
+
+        const questionCard = document.querySelector('.question-card');
+        if (!questionCard) return;
+
+        // remove old timer if exists
+        document.getElementById('countdownBox')?.remove();
+
+        // create timer
+        const timerBox = document.createElement('div');
+        timerBox.id = "countdownBox";
+        timerBox.style.marginTop = "12px";
+        timerBox.style.fontSize = "1rem";
+        timerBox.style.fontWeight = "600";
+        timerBox.style.color = "#845ec2";
+        timerBox.style.textAlign = "center";
+        timerBox.innerHTML = `
+          ⏳ Opening in <span id="countdown">5</span> seconds...
+        `;
+
+        questionCard.appendChild(timerBox);
+
+        const countdownEl = timerBox.querySelector('#countdown');
+
+        let timeLeft = 5;
+
+        const interval = setInterval(() => {
+          timeLeft--;
+
+          if (countdownEl) {
+            countdownEl.textContent = timeLeft;
+          }
+
+          if (timeLeft <= 0) {
+            clearInterval(interval);
+
+            timerBox.remove();
+
+            showFloatingMessage("🎉 Preparing your birthday surprise... 🎉");
+
+            setTimeout(() => {
+              showBirthdayPage();
+            }, 800);
+          }
+        }, 1000);
       };
-      okBtn.addEventListener('click', cleanupAndProceed);
-      backdrop.addEventListener('click', cleanupAndProceed);
+
+      // button + backdrop triggers
+      okBtn.addEventListener('click', openSurprise);
+      backdrop.addEventListener('click', openSurprise);
     }
 
     // Force pop the No button (balloon effect) and trigger the joke flow
@@ -790,9 +838,53 @@
 
       yesBtn.addEventListener('click', (e) => {
         e.preventDefault();
+
         if (noBtn && noBtn.parentNode) noBtn.remove();
         noButtonActive = false;
-        showBirthdayPage();
+
+        const questionCard = document.querySelector('.question-card');
+        if (!questionCard) return;
+
+        // remove existing timer if any
+        document.getElementById('countdownBox')?.remove();
+
+        // create timer
+        const timerBox = document.createElement('div');
+        timerBox.id = "countdownBox";
+        timerBox.style.marginTop = "12px";
+        timerBox.style.fontSize = "1rem";
+        timerBox.style.fontWeight = "600";
+        timerBox.style.color = "#845ec2";
+        timerBox.style.textAlign = "center";
+
+        timerBox.innerHTML = `
+          🎈 Opening in <span id="countdown">5</span> seconds...
+        `;
+
+        questionCard.appendChild(timerBox);
+
+        const countdownEl = timerBox.querySelector('#countdown');
+
+        let timeLeft = 5;
+
+        const interval = setInterval(() => {
+          timeLeft--;
+
+          if (countdownEl) {
+            countdownEl.textContent = timeLeft;
+          }
+
+          if (timeLeft <= 0) {
+            clearInterval(interval);
+            timerBox.remove();
+
+            showFloatingMessage("🎉 Opening your surprise... 🎉");
+
+            setTimeout(() => {
+              showBirthdayPage();
+            }, 600);
+          }
+        }, 1000);
       });
     }
     
