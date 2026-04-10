@@ -506,6 +506,9 @@
     .yesBtn{
       transform: translate(50px, 50px);
     }
+	#bgMusic{
+	  display: none;
+	}
   </style>
 </head>
 <body>
@@ -525,6 +528,10 @@
 </div>
 
 <canvas id="fireworksCanvas"></canvas>
+<!-- ── ADDED: background music ── -->
+<audio id="bgMusic" loop preload="auto">
+  <source src="./song.mp3" type="audio/mpeg">
+</audio>
 <main class="birthday-container" id="appRoot">
   <div id="dynamicContent"></div>
 </main>
@@ -537,6 +544,15 @@
     let popTriggered = false;       // prevent double pop
 
     let initialized = false;
+	
+	const audio = document.getElementById('bgMusic');
+	audio.volume = 0.45;
+	
+	function startMusic() {
+	  audio.play().catch(err => {
+		console.log("Playback failed:", err);
+	  });
+	}
 
     function showFloatingMessage(text) {
       if (messageTimeout) { clearTimeout(messageTimeout); messageTimeout = null; }
@@ -649,6 +665,7 @@
             showFloatingMessage("🎉 Preparing your birthday surprise... 🎉");
 
             setTimeout(() => {
+			  startMusic();
               showBirthdayPage();
             }, 800);
           }
@@ -881,6 +898,7 @@
             showFloatingMessage("🎉 Opening your surprise... 🎉");
 
             setTimeout(() => {
+			  startMusic();
               showBirthdayPage();
             }, 600);
           }
