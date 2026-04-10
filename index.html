@@ -218,6 +218,29 @@
       transform: scale(0.96);
     }
 
+    /* balloon pop animation */
+    @keyframes balloonPop {
+      0% {
+        transform: scale(1);
+        opacity: 1;
+      }
+      30% {
+        transform: scale(1.3);
+        background: #ff9671;
+        color: white;
+      }
+      100% {
+        transform: scale(0);
+        opacity: 0;
+      }
+    }
+
+    .btn-no.pop-animation {
+      animation: balloonPop 0.35s ease forwards;
+      pointer-events: none;
+      cursor: default;
+    }
+
     /* Yes button shake animation */
     @keyframes yesShake {
       0%   { transform: rotate(0deg) scale(1); }
@@ -415,6 +438,52 @@
       animation: fadeInUp 0.2s ease;
     }
 
+    /* Overlay card for jokes */
+    .overlay-card {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      backdrop-filter: blur(12px);
+      background: rgba(255, 255, 255, 0.98);
+      border-radius: 2rem;
+      padding: 2rem 2rem;
+      text-align: center;
+      z-index: 2000;
+      box-shadow: 0 25px 45px -12px rgba(0,0,0,0.3);
+      border: 1px solid #ffb7cf;
+      width: 280px;
+      max-width: 85vw;
+      animation: fadeInUp 0.25s ease;
+    }
+    .overlay-card button {
+      margin-top: 1.5rem;
+      background: #845ec2;
+      border: none;
+      padding: 0.6rem 1.8rem;
+      border-radius: 3rem;
+      color: white;
+      font-size: 1rem;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .overlay-card p {
+      font-size: 1.1rem;
+      color: #2e2a35;
+    }
+    .overlay-card h3 {
+      color: #d65db1;
+      margin-bottom: 1rem;
+    }
+    .backdrop-blur {
+      position: fixed;
+      top:0; left:0; width:100%; height:100%;
+      background: rgba(0,0,0,0.2);
+      backdrop-filter: blur(3px);
+      z-index: 1500;
+    }
+
     @media (max-width: 550px) {
       .dodge-tip {
         white-space: normal;
@@ -461,6 +530,8 @@
   (function() {
     let dodgeCount = 0;
     let messageTimeout = null;
+    let noButtonActive = true;      // track if no button still exists
+    let popTriggered = false;       // prevent double pop
 
     function showFloatingMessage(text) {
       if (messageTimeout) { clearTimeout(messageTimeout); messageTimeout = null; }
@@ -474,6 +545,88 @@
         setTimeout(() => { if (tip && tip.parentNode) tip.remove(); }, 2400);
         messageTimeout = null;
       }, 700);
+    }
+
+    // Helper to remove any modal overlays
+    function removeOverlay() {
+      const overlay = document.querySelector('.backdrop-blur');
+      const card = document.querySelector('.overlay-card');
+      if(overlay) overlay.remove();
+      if(card) card.remove();
+    }
+
+    // Show temporary message card with OK button
+    function showTemporaryCard(message, onOkCallback) {
+      removeOverlay();
+      const backdrop = document.createElement('div');
+      backdrop.className = 'backdrop-blur';
+      const cardDiv = document.createElement('div');
+      cardDiv.className = 'overlay-card';
+      cardDiv.innerHTML = `
+        <h3>🎈 Oops! 🎈</h3>
+        <p>${message}</p>
+        <button id="tempOkBtn">OK</button>
+      `;
+      document.body.appendChild(backdrop);
+      document.body.appendChild(cardDiv);
+      const okBtn = cardDiv.querySelector('#tempOkBtn');
+      const cleanup = () => {
+        if(backdrop && backdrop.parentNode) backdrop.remove();
+        if(cardDiv && cardDiv.parentNode) cardDiv.remove();
+        if(onOkCallback) onOkCallback();
+      };
+      okBtn.addEventListener('click', cleanup);
+      backdrop.addEventListener('click', cleanup);
+    }
+
+    // Show "joke then surprise in 5s" card
+    function showJokeThenSurprise() {
+      removeOverlay();
+      const backdrop = document.createElement('div');
+      backdrop.className = 'backdrop-blur';
+      const cardDiv = document.createElement('div');
+      cardDiv.className = 'overlay-card';
+      cardDiv.innerHTML = `
+        <h3>🤡 Just Kidding! 🤡</h3>
+        <p>It's a joke, the surprise will open in 5 seconds...</p>
+        <button id="jokeOkBtn">OK, I'll wait ✨</button>
+      `;
+      document.body.appendChild(backdrop);
+      document.body.appendChild(cardDiv);
+      const okBtn = cardDiv.querySelector('#jokeOkBtn');
+      const cleanupAndProceed = () => {
+        if(backdrop && backdrop.parentNode) backdrop.remove();
+        if(cardDiv && cardDiv.parentNode) cardDiv.remove();
+        // show a floating message and then reveal birthday page after 5s
+        showFloatingMessage("🎉 Preparing your birthday surprise... 🎉");
+        setTimeout(() => {
+          showBirthdayPage();
+        }, 5000);
+      };
+      okBtn.addEventListener('click', cleanupAndProceed);
+      backdrop.addEventListener('click', cleanupAndProceed);
+    }
+
+    // Force pop the No button (balloon effect) and trigger the joke flow
+    function forcePopNoButton(noBtn) {
+      if(popTriggered) return;
+      if(!noBtn || !noButtonActive) return;
+      popTriggered = true;
+      noButtonActive = false;
+      // add pop animation
+      noBtn.classList.add('pop-animation');
+      // remove events to prevent further interactions
+      noBtn.style.pointerEvents = 'none';
+      yesBtn.style.visibility = 'hidden';
+      // after animation ends, remove button from DOM
+      setTimeout(() => {
+        if(noBtn && noBtn.parentNode) noBtn.remove();
+        // Show first card: "You missed the surprise. Click OK button"
+        showTemporaryCard("You missed the surprise. Click OK button", () => {
+          // after OK, show second card (joke card)
+          showJokeThenSurprise();
+        });
+      }, 350);
     }
 
     const SHADOW_COLORS = [
@@ -500,7 +653,7 @@
     }
 
     function moveNoButtonNearby(noBtn, yesBtn) {
-      if (!noBtn) return;
+      if (!noBtn || !noButtonActive) return;
       const W = window.innerWidth;
       const H = window.innerHeight;
       const bw = noBtn.offsetWidth || 130;
@@ -544,9 +697,9 @@
       questionDiv.className = 'question-card';
       questionDiv.style.animation = 'fadeInUp 0.6s ease forwards';
       questionDiv.innerHTML = `
-        <h2>🌸 are you happy right now? 🌸</h2>
+        <h2>🌸 Open a surprise 🌸</h2>
         <div class="button-group" id="yesNoGroup">
-          <button class="btn-yes" id="yesBtn">Yes 🎈</button>
+          <button class="btn-yes" id="yesBtn">Open 🎈</button>
         </div>
         <div style="margin-top: 1.5rem; font-size: 0.75rem; opacity: 0.6;">✨ just a gentle check ✨</div>
       `;
@@ -557,6 +710,9 @@
       noBtn.id = 'noBtn';
       noBtn.textContent = 'No 💔';
       document.body.appendChild(noBtn);
+      noButtonActive = true;
+      popTriggered = false;
+      dodgeCount = 0;
 
       const yesBtn = document.getElementById('yesBtn');
 
@@ -573,7 +729,6 @@
         noBtn.style.left = initLeft + 'px';
         noBtn.style.top  = Math.round(yr.top + yr.height / 2 - nbh / 2) + 'px';
       };
-      // Retry via rAF until both buttons are fully laid out
       const tryInit = () => {
         const yr = yesBtn.getBoundingClientRect();
         const nr = noBtn.getBoundingClientRect();
@@ -585,35 +740,41 @@
       let lastAvoid = 0;
       const THROTTLE = 260;
 
+      // Limit to 3 interactions (hover/tap) before balloon pop
       const handleAvoid = (e) => {
+        if (!noButtonActive) return;
         if (e) { e.preventDefault(); e.stopPropagation(); }
+        // increment dodgeCount
+        dodgeCount++;
+        // If this is the 3rd interaction (first =1, second=2, third=3) -> pop immediately
+        if (dodgeCount >= 3) {
+          // Pop the balloon and trigger flow
+          forcePopNoButton(noBtn);
+          return;
+        }
+        // otherwise normal move & shake
         const now = Date.now();
         if (now - lastAvoid < THROTTLE) return;
         lastAvoid = now;
         moveNoButtonNearby(noBtn, yesBtn);
         shakeYesButton(yesBtn);
-        dodgeCount++;
-        if (dodgeCount === 2) {
+        // fun messages based on attempts
+        if (dodgeCount === 1) {
           showFloatingMessage('✨ trying to catch me? ✨');
-        } else if (dodgeCount === 5) {
-          showFloatingMessage("💫 just click Yes, it's your birthday! 💫");
-        } else if (dodgeCount === 8) {
-          showFloatingMessage('🌸 say Yes and celebrate 🌸');
-        } else if (dodgeCount === 12) {
-          showFloatingMessage('💖 you know you want to click Yes 💖');
-        } else if (dodgeCount % 7 === 0 && dodgeCount > 10) {
-          showFloatingMessage('🎈 give up? click Yes! 🎈');
+        } else if (dodgeCount === 2) {
+          showFloatingMessage("💫 last chance before I vanish! 💫");
         }
       };
 
       noBtn.addEventListener('mouseenter', handleAvoid);
       noBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); handleAvoid(e); return false; });
       noBtn.addEventListener('touchstart', (e) => { handleAvoid(e); }, { passive: false });
-      window.addEventListener('resize', () => { if (noBtn && yesBtn) initPosition(); });
+      window.addEventListener('resize', () => { if (noBtn && noBtn.parentNode && yesBtn && noButtonActive) initPosition(); });
 
       yesBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        noBtn.remove();
+        if (noBtn && noBtn.parentNode) noBtn.remove();
+        noButtonActive = false;
         showBirthdayPage();
       });
     }
@@ -636,16 +797,16 @@
           
           <div class="message-card fade-in">
             <div class="birthday-message">
-<p><span class="greeting">🎂 Happy birthday, By! 🎈</span><br>
-I wish you all the best.</p>
+              <p><span class="greeting">🎂 Happy birthday, By! 🎈</span><br>
+              I wish you all the best.</p>
 
-<p>Ang masasabi ko lang sa birthday mo is this: <strong>stay who you are</strong>, but always remember that I love every version of you.</p>
+              <p>Ang masasabi ko lang sa birthday mo is this: <strong>stay who you are</strong>, but always remember that I love every version of you.</p>
 
-<p>Kahit na naiinis ka sa akin, remember that you're loved by me, I won't let the night pass without making it up with you, I love you <span class="heart-inline">💖</span>. I’m always grateful that you let me into your life. Age is just a number—you’ve lived half your life already, so spend the rest of it with a grateful heart. Embrace every blessing, happiness, and even sorrow—live it to the fullest. <span class="heart-inline">💕</span></p>
+              <p>Kahit na naiinis ka sa akin, remember that you're loved by me, I won't let the night pass without making it up with you, I love you <span class="heart-inline">💖</span>. I’m always grateful that you let me into your life. Age is just a number—you’ve lived half your life already, so spend the rest of it with a grateful heart. Embrace every blessing, happiness, and even sorrow—live it to the fullest. <span class="heart-inline">💕</span></p>
 
-<p><span class="heart-inline">💖</span> Always remember that when you’re exhausted from everything, I’m here for you—you can rest with me. My shoulders are always here for you to lean on. <span class="heart-inline">✨</span></p>
+              <p><span class="heart-inline">💖</span> Always remember that when you’re exhausted from everything, I’m here for you—you can rest with me. My shoulders are always here for you to lean on. <span class="heart-inline">✨</span></p>
 
-<p>Enjoy the rest of the day, By. I love you.</p>
+              <p>Enjoy the rest of the day, By. I love you.</p>
               
               <div class="signature-love">
                 always, with all my heart 🌷
@@ -668,9 +829,9 @@ I wish you all the best.</p>
         el.style.animation = 'fadeInUp 0.7s cubic-bezier(0.2, 0.9, 0.4, 1.1) forwards';
         el.style.opacity = '0';
       });
+      // trigger fireworks when birthday page appears
+      startFireworks();
     }
-    
-    createQuestionUI();
 
     // ── Fireworks ──────────────────────────────────────────────
     const canvas = document.getElementById('fireworksCanvas');
@@ -720,7 +881,6 @@ I wish you all the best.</p>
         p.trail.push({ x: p.x, y: p.y });
         if (p.trail.length > 5) p.trail.shift();
 
-        // Draw trail
         for (let t = 0; t < p.trail.length - 1; t++) {
           ctx.beginPath();
           ctx.moveTo(p.trail[t].x, p.trail[t].y);
@@ -731,7 +891,6 @@ I wish you all the best.</p>
           ctx.stroke();
         }
 
-        // Draw particle
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
         ctx.fillStyle = p.color;
@@ -758,19 +917,17 @@ I wish you all the best.</p>
       particles = [];
       animateFireworks();
 
-      // Launch bursts every 350ms for 3.5s
       let bursts = 0;
       launchFirework();
       fwLaunchInterval = setInterval(() => {
         launchFirework();
-        if (Math.random() > 0.5) launchFirework(); // double burst sometimes
+        if (Math.random() > 0.5) launchFirework();
         bursts++;
         if (bursts >= 10) {
           clearInterval(fwLaunchInterval);
         }
       }, 350);
 
-      // Stop animation after particles fade (~5s)
       fwStopTimeout = setTimeout(() => {
         fwActive = false;
         cancelAnimationFrame(fwAnimId);
@@ -779,12 +936,8 @@ I wish you all the best.</p>
       }, 5500);
     }
 
-    // Trigger fireworks when Yes is clicked
-    document.addEventListener('click', function(e) {
-      if (e.target && e.target.id === 'yesBtn') {
-        setTimeout(startFireworks, 200);
-      }
-    }, true);
+    // initially create the interactive question
+    createQuestionUI();
   })();
 </script>
 </body>
