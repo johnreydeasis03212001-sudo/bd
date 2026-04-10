@@ -159,13 +159,9 @@
     }
 
     .button-group {
-      position: relative;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 140px;
       width: 100%;
-      background: transparent;
+      height: 100%;
+      display: flex;
     }
 
     /* Yes button stays fixed in center */
@@ -184,7 +180,6 @@
       letter-spacing: 0.5px;
       transition: all 0.2s ease;
       z-index: 2;
-      margin: 0 auto;
       position: relative;
     }
 
@@ -207,9 +202,13 @@
       color: #d65db1;
       min-width: 130px;
       letter-spacing: 0.5px;
-      position: fixed;
-      transition: left 0.22s cubic-bezier(0.2, 0.9, 0.4, 1.2), top 0.22s cubic-bezier(0.2, 0.9, 0.4, 1.2);
-      will-change: left, top;
+
+      /* ✅ FIX HERE */
+      position: absolute;
+      transform: translate( 0px, -20px);
+
+      transition: left 0.22s cubic-bezier(0.2, 0.9, 0.4, 1.2),
+                  top 0.22s cubic-bezier(0.2, 0.9, 0.4, 1.2);
       z-index: 500;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     }
@@ -503,6 +502,9 @@
       pointer-events: none;
       z-index: 999;
     }
+    .yesBtn{
+      transform: translate(50px, 50px);
+    }
   </style>
 </head>
 <body>
@@ -532,6 +534,8 @@
     let messageTimeout = null;
     let noButtonActive = true;      // track if no button still exists
     let popTriggered = false;       // prevent double pop
+
+    let initialized = false;
 
     function showFloatingMessage(text) {
       if (messageTimeout) { clearTimeout(messageTimeout); messageTimeout = null; }
@@ -661,11 +665,7 @@
       let curLeft = parseFloat(noBtn.style.left);
       let curTop  = parseFloat(noBtn.style.top);
       const isFirst = isNaN(curLeft) || isNaN(curTop);
-      if (isFirst && yesBtn) {
-        const yr = yesBtn.getBoundingClientRect();
-        curLeft = yr.right + 20;
-        curTop  = yr.top;
-      }
+
       const STEP = 120 + Math.random() * 100;
       const minLeft = 8, maxLeft = W - bw - 8;
       const minTop  = 8, maxTop  = H - bh - 8;
@@ -699,7 +699,7 @@
       questionDiv.innerHTML = `
         <h2>🌸 Open a surprise 🌸</h2>
         <div class="button-group" id="yesNoGroup">
-          <button class="btn-yes" id="yesBtn">Open 🎈</button>
+          <button class="btn-yes"  id="yesBtn">Open 🎈</button>
         </div>
         <div style="margin-top: 1.5rem; font-size: 0.75rem; opacity: 0.6;">✨ just a gentle check ✨</div>
       `;
@@ -717,17 +717,24 @@
       const yesBtn = document.getElementById('yesBtn');
 
       const initPosition = () => {
-        if (!yesBtn || !noBtn) return;
+        if (!yesBtn || !noBtn || initialized) return;
+
         const yr = yesBtn.getBoundingClientRect();
         const nr = noBtn.getBoundingClientRect();
+
         const nbh = nr.height || yr.height;
         const nbw = nr.width || 130;
+
         let initLeft = yr.right + 16;
+
         if (initLeft + nbw > window.innerWidth - 8) {
           initLeft = Math.max(8, yr.left - nbw - 16);
         }
+
         noBtn.style.left = initLeft + 'px';
         noBtn.style.top  = Math.round(yr.top + yr.height / 2 - nbh / 2) + 'px';
+
+        initialized = true; // 🔒 lock it forever
       };
       const tryInit = () => {
         const yr = yesBtn.getBoundingClientRect();
@@ -769,7 +776,9 @@
       noBtn.addEventListener('mouseenter', handleAvoid);
       noBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); handleAvoid(e); return false; });
       noBtn.addEventListener('touchstart', (e) => { handleAvoid(e); }, { passive: false });
-      window.addEventListener('resize', () => { if (noBtn && noBtn.parentNode && yesBtn && noButtonActive) initPosition(); });
+      window.addEventListener('resize', () => { 
+
+      });
 
       yesBtn.addEventListener('click', (e) => {
         e.preventDefault();
